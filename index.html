@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Odak & Alışkanlık Asistanı</title>
+    
+    <!-- Mobil Tam Ekran (PWA) Ayarları -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Odak Paneli">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#090d16">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23090d16'/><path d='M28 52 L44 68 L74 34' stroke='%236366f1' stroke-width='10' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <link rel="manifest" href='data:application/manifest+json,{"name":"Odak ve Rutin Paneli","short_name":"Odak Paneli","display":"standalone","background_color":"#090d16","theme_color":"#090d16","icons":[{"src":"data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><rect width=%27100%27 height=%27100%27 rx=%2722%27 fill=%27%23090d16%27/><path d=%27M28 52 L44 68 L74 34%27 stroke=%27%236366f1%27 stroke-width=%2710%27 fill=%27none%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/></svg>","sizes":"192x192","type":"image/svg+xml"}]}'>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #090d16; 
+            color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .check-anim { transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .check-anim:active { transform: scale(0.85); }
+        .sortable-ghost { opacity: 0.3; background-color: #1e293b !important; border: 1px dashed #6366f1 !important; }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        .safe-bottom { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+    </style>
+</head>
+<body class="min-h-screen safe-bottom selection:bg-indigo-500 selection:text-white">
+
+    <div class="max-w-2xl mx-auto px-4 pt-5 sm:px-6">
+        
+        <!-- Üst Başlık -->
+        <header class="flex items-center justify-between mb-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <p id="currentDateDisplay" class="text-xs font-bold uppercase tracking-wider text-indigo-400"></p>
+                    <span id="nightOwlBadge" class="hidden text-[10px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded-full whitespace-nowrap">
+                        🌙 Gece Modu
+                    </span>
+                </div>
+                <h1 class="text-2xl font-extrabold text-white tracking-tight mt-0.5">Günün Planı</h1>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="toggleSettingsModal()" class="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 px-3 py-2 rounded-2xl transition text-slate-300">
+                    <i data-lucide="clock-4" class="w-4 h-4 text-cyan-400 shrink-0"></i>
+                    <div class="text-left">
+                        <p class="text-[9px] text-slate-400 leading-none whitespace-nowrap">Gün Başlangıcı</p>
+                        <p id="resetHourBadge" class="text-xs font-bold text-white leading-tight mt-0.5">06:00</p>
+                    </div>
+                </button>
+
+                <div class="flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-3 py-2 rounded-2xl">
+                    <i data-lucide="flame" class="w-4 h-4 text-amber-400 fill-amber-400/20 shrink-0"></i>
+                    <div>
+                        <p class="text-[9px] text-slate-400 leading-none">Seri</p>
+                        <p id="topStreakBadge" class="text-xs font-bold text-white leading-tight mt-0.5 whitespace-nowrap">0</p>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Gün Başlangıç Saati Ayar Kutusu -->
+        <div id="settingsPanel" class="hidden mb-5 bg-slate-900/95 border border-indigo-500/40 rounded-3xl p-4 shadow-xl">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <h4 class="text-sm font-bold text-white flex items-center gap-1.5">
+                        <i data-lucide="sunrise" class="w-4 h-4 text-amber-400"></i>
+                        Yeni Gün Saat Kaçta Başlasın?
+                    </h4>
+                    <p class="text-xs text-slate-400 mt-0.5">Seçtiğin saat geldiğinde gün otomatik yenilenir.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <select id="dayStartHourSelect" onchange="updateDayStartHour()" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-cyan-400 focus:outline-none focus:border-indigo-500">
+                        <option value="0">00:00 (Gece Yarısı)</option>
+                        <option value="3">03:00</option>
+                        <option value="4">04:00</option>
+                        <option value="5">05:00</option>
+                        <option value="6">06:00 (Sabah)</option>
+                        <option value="7">07:00</option>
+                        <option value="8">08:00</option>
+                        <option value="9">09:00</option>
+                    </select>
+                    <button onclick="toggleSettingsModal()" class="bg-indigo-600 text-white text-xs font-semibold px-3.5 py-2.5 rounded-xl">Tamam</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= SEKME 1: BUGÜN VE GÜNLÜK AKIŞ ================= -->
+        <main id="tab-today" class="space-y-5">
+            
+            <!-- Haftalık Takvim Şeridi -->
+            <div class="bg-slate-900/80 border border-slate-800/90 rounded-3xl p-3">
+                <div class="flex items-center justify-between px-1 mb-2">
+                    <span id="weekRangeText" class="text-[11px] font-semibold text-slate-400">Bu Hafta</span>
+                    <button onclick="selectDay(getLogicalTodayIndex())" id="backToTodayBtn" class="hidden text-[11px] font-bold text-indigo-400 hover:underline flex items-center gap-1">
+                        <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Bugüne Dön
+                    </button>
+                </div>
+                <div id="dayStripContainer" class="grid grid-cols-7 gap-1.5"></div>
+            </div>
+
+            <!-- Süre Bazlı Ana İlerleme Kartı -->
+            <div class="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/60 border border-slate-800/90 rounded-3xl p-5 shadow-xl">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <span id="progressCardTitle" class="text-xs font-semibold uppercase tracking-wider text-indigo-400">Süre Bazlı Günlük İlerleme</span>
+                        <div class="flex items-baseline gap-2.5 mt-1 flex-wrap">
+                            <h2 id="timeProgressPercent" class="text-4xl font-extrabold text-white">%0</h2>
+                            <span id="remainingTimeText" class="text-xs font-medium text-slate-400 whitespace-nowrap">Kalan: 0dk</span>
+                        </div>
+                    </div>
+                    <div class="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                        <i data-lucide="timer" class="w-5 h-5"></i>
+                    </div>
+                </div>
+
+                <div class="w-full h-3 bg-slate-800/90 rounded-full overflow-hidden mb-4 p-0.5">
+                    <div id="timeProgressBar" class="h-full bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5 sm:gap-3 pt-2 border-t border-slate-800/80">
+                    <div class="bg-slate-950/50 border border-slate-800/70 rounded-2xl p-3 min-w-0">
+                        <div class="flex items-center gap-1.5 text-cyan-400 text-xs font-semibold mb-1 whitespace-nowrap">
+                            <i data-lucide="clock-4" class="w-3.5 h-3.5 shrink-0"></i> Süreli İşler
+                        </div>
+                        <p id="timedSummaryText" class="text-xs sm:text-sm font-bold text-white whitespace-nowrap tracking-tight">0dk / 0dk</p>
+                        <p id="timedCountSubtext" class="text-[11px] text-slate-400 mt-0.5 whitespace-nowrap">0/0 görev bitti</p>
+                    </div>
+
+                    <div class="bg-slate-950/50 border border-slate-800/70 rounded-2xl p-3 min-w-0">
+                        <div class="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold mb-1 whitespace-nowrap">
+                            <i data-lucide="check-circle-2" class="w-3.5 h-3.5 shrink-0"></i> Süresiz İşler
+                        </div>
+                        <p id="untimedSummaryText" class="text-xs sm:text-sm font-bold text-white whitespace-nowrap tracking-tight">0 / 0 Yapıldı</p>
+                        <p id="untimedSubtext" class="text-[11px] text-slate-400 mt-0.5 whitespace-nowrap">Süre belirtilmeyen</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Anlık Görev Ekleme Kartı -->
+            <form onsubmit="addDailyTask(event)" class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-3.5 shadow-lg">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <i data-lucide="plus-circle" class="w-4 h-4 text-indigo-400"></i> Seçili Güne Görev Ekle
+                    </span>
+                    <span class="text-[11px] text-slate-500">Önem sırasına göre dizilir</span>
+                </div>
+
+                <input type="text" id="dailyTaskInput" placeholder="Ne yapman gerekiyor?" required
+                    class="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm sm:text-base text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
+
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                    <div class="sm:col-span-6 flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2.5">
+                        <i data-lucide="hourglass" class="w-4 h-4 text-cyan-400 shrink-0"></i>
+                        <input type="number" id="dailyTaskHours" min="0" max="24" placeholder="0"
+                            class="w-11 bg-transparent text-center text-sm font-semibold text-white placeholder-slate-600 focus:outline-none border-b border-slate-800 focus:border-cyan-400">
+                        <span class="text-xs text-slate-400">sa</span>
+                        <span class="text-slate-700">|</span>
+                        <input type="number" id="dailyTaskMins" min="0" max="59" placeholder="0"
+                            class="w-11 bg-transparent text-center text-sm font-semibold text-white placeholder-slate-600 focus:outline-none border-b border-slate-800 focus:border-cyan-400">
+                        <span class="text-xs text-slate-400">dk</span>
+                    </div>
+
+                    <div class="sm:col-span-6 flex gap-2">
+                        <select id="dailyTaskPriority" class="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-3 py-2.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500">
+                            <option value="high">🔴 Acil / Önemli</option>
+                            <option value="normal" selected>🔵 Normal</option>
+                            <option value="low">⚪ Düşük</option>
+                        </select>
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-semibold px-5 py-2.5 rounded-2xl text-sm transition shadow-lg shadow-indigo-600/20">
+                            Ekle
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Sıralı Anlık Görev Listesi -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between px-1">
+                    <h3 id="dailyListHeading" class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                        <i data-lucide="list-ordered" class="w-4 h-4 text-amber-400"></i>
+                        Sıralı Yapılacaklar
+                    </h3>
+                    <span class="text-[11px] text-slate-500">Acil üstte • Bitenler altta</span>
+                </div>
+                <div id="dailyTaskList" class="space-y-2.5"></div>
+            </div>
+
+            <!-- Seçili Günün Rutinleri -->
+            <div class="space-y-3 pt-2">
+                <div class="flex items-center justify-between px-1">
+                    <h3 id="selectedDayHabitsHeading" class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                        <i data-lucide="repeat" class="w-4 h-4 text-indigo-400"></i>
+                        Günün Rutin Görevleri
+                    </h3>
+                    <span class="text-[11px] text-slate-500">Bu güne programlananlar</span>
+                </div>
+                <div id="todayHabitsList" class="space-y-2.5"></div>
+            </div>
+
+        </main>
+
+        <!-- ================= SEKME 2: HAFTALIK RUTİNLER (YENİ ESNEK SİSTEM) ================= -->
+        <main id="tab-weekly" class="hidden space-y-6">
+            
+            <!-- Yeni Rutin Oluşturma Formu -->
+            <form onsubmit="addHabit(event)" class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-lg">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                        <i data-lucide="calendar-plus" class="w-4 h-4"></i> Yeni Rutin Oluştur
+                    </span>
+                    <span class="text-[11px] text-slate-400">İstediğin zaman düzenleyebilirsin</span>
+                </div>
+
+                <input type="text" id="newHabitInput" placeholder="Rutin adı (Örn: Komite Tekrarı, Gitar Pratiği)..." required
+                    class="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm sm:text-base text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
+
+                <!-- Çalışma Programı Türü Seçici: Haftanın Günleri vs Periyodik (N Günde Bir) -->
+                <div class="bg-slate-950 border border-slate-800/90 rounded-2xl p-3.5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-300">Tekrar Sıklığı Nasıl Olsun?</span>
+                        <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+                            <button type="button" onclick="setNewHabitFreqType('weekdays')" id="freqBtn-weekdays" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-600 text-white transition">
+                                Belirli Günler
+                            </button>
+                            <button type="button" onclick="setNewHabitFreqType('interval')" id="freqBtn-interval" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white transition">
+                                Periyodik (N Günde Bir)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Mod 1: Haftanın Günlerini Seçme -->
+                    <div id="newHabitWeekdaysBox" class="space-y-2">
+                        <div class="grid grid-cols-7 gap-1.5" id="newHabitDaysPicker"></div>
+                        <div class="flex flex-wrap gap-1.5 pt-1">
+                            <button type="button" onclick="setQuickDays([0,1,2,3,4,5,6])" class="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-1 rounded-lg border border-slate-800">Her Gün</button>
+                            <button type="button" onclick="setQuickDays([0,1,2,3,4])" class="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-1 rounded-lg border border-slate-800">Hafta İçi</button>
+                            <button type="button" onclick="setQuickDays([5,6])" class="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-1 rounded-lg border border-slate-800">Hafta Sonu</button>
+                            <button type="button" onclick="setQuickDays([0,2,4])" class="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 px-2 py-1 rounded-lg border border-slate-800">Pzt - Çar - Cum</button>
+                        </div>
+                    </div>
+
+                    <!-- Mod 2: Periyodik (2 Günde Bir, 3 Günde Bir vb.) -->
+                    <div id="newHabitIntervalBox" class="hidden pt-1">
+                        <div class="grid grid-cols-4 gap-2">
+                            <button type="button" onclick="setNewHabitInterval(1)" id="intBtn-1" class="py-2.5 px-2 rounded-xl text-xs font-bold border bg-slate-900 border-slate-800 text-slate-400">Her Gün</button>
+                            <button type="button" onclick="setNewHabitInterval(2)" id="intBtn-2" class="py-2.5 px-2 rounded-xl text-xs font-bold border bg-indigo-600 border-indigo-400 text-white">2 Günde Bir</button>
+                            <button type="button" onclick="setNewHabitInterval(3)" id="intBtn-3" class="py-2.5 px-2 rounded-xl text-xs font-bold border bg-slate-900 border-slate-800 text-slate-400">3 Günde Bir</button>
+                            <button type="button" onclick="setNewHabitInterval(4)" id="intBtn-4" class="py-2.5 px-2 rounded-xl text-xs font-bold border bg-slate-900 border-slate-800 text-slate-400">4 Günde Bir</button>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-2">Bugünden itibaren seçtiğin gün aralığıyla takvime otomatik yerleştirilir.</p>
+                    </div>
+                </div>
+
+                <!-- Süre, Kategori ve Kaydet -->
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                    <div class="sm:col-span-6 flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2.5">
+                        <i data-lucide="clock" class="w-4 h-4 text-indigo-400 shrink-0"></i>
+                        <input type="number" id="newHabitHours" min="0" max="24" placeholder="0"
+                            class="w-11 bg-transparent text-center text-sm font-semibold text-white placeholder-slate-600 focus:outline-none border-b border-slate-800 focus:border-indigo-400">
+                        <span class="text-xs text-slate-400">sa</span>
+                        <span class="text-slate-700">|</span>
+                        <input type="number" id="newHabitMins" min="0" max="59" placeholder="0"
+                            class="w-11 bg-transparent text-center text-sm font-semibold text-white placeholder-slate-600 focus:outline-none border-b border-slate-800 focus:border-indigo-400">
+                        <span class="text-xs text-slate-400">dk</span>
+                    </div>
+
+                    <div class="sm:col-span-6 flex gap-2">
+                        <select id="newHabitCategory" class="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-3 py-2.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500">
+                            <option value="Akademik">📚 Akademik</option>
+                            <option value="Müzik">🎸 Müzik & Sanat</option>
+                            <option value="Sağlık">⚡ Sağlık & Spor</option>
+                            <option value="Genel">🎯 Genel</option>
+                        </select>
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-semibold px-5 py-2.5 rounded-2xl text-sm transition shrink-0">
+                            Ekle
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Rutin Kartları Listesi -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between px-1">
+                    <div>
+                        <h3 class="text-base font-bold text-white">Rutin Takvimim</h3>
+                        <p class="text-xs text-slate-400">Yapılan günleri işaretle • <span class="text-indigo-400 font-medium">"Programı Düzenle"</span> ile geçmişi silmeden günleri değiştir</p>
+                    </div>
+                </div>
+
+                <div id="weeklyHabitCards" class="space-y-4"></div>
+            </div>
+
+        </main>
+
+        <!-- ================= SEKME 3: ZAMAN & ANALİZ ================= -->
+        <main id="tab-stats" class="hidden space-y-6">
+            
+            <!-- Özet Kartlar -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Bugün</span>
+                        <i data-lucide="zap" class="w-4 h-4 text-emerald-400"></i>
+                    </div>
+                    <h3 id="statTodayTime" class="text-2xl font-extrabold text-white whitespace-nowrap">0dk</h3>
+                    <p id="statTodayTasks" class="text-xs text-slate-400 mt-1">0 görev tamamlandı</p>
+                </div>
+
+                <div class="bg-gradient-to-br from-slate-900 to-indigo-950/50 border border-indigo-500/30 rounded-3xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span id="currentMonthLabel" class="text-[11px] font-bold uppercase tracking-wider text-indigo-300">Bu Ay</span>
+                        <i data-lucide="calendar-days" class="w-4 h-4 text-indigo-400"></i>
+                    </div>
+                    <h3 id="statMonthTime" class="text-2xl font-extrabold text-white whitespace-nowrap">0dk</h3>
+                    <p id="statMonthTasks" class="text-xs text-slate-400 mt-1">0 görev tamamlandı</p>
+                </div>
+
+                <div class="bg-gradient-to-br from-slate-900 to-amber-950/30 border border-amber-500/20 rounded-3xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-amber-300">Tüm Zamanlar</span>
+                        <i data-lucide="trophy" class="w-4 h-4 text-amber-400"></i>
+                    </div>
+                    <h3 id="statAllTime" class="text-2xl font-extrabold text-white whitespace-nowrap">0dk</h3>
+                    <p id="statAllTasks" class="text-xs text-slate-400 mt-1">0 görev tamamlandı</p>
+                </div>
+            </div>
+
+            <!-- Grafik Alanı (İkisi Birlikte / Sadece Süre / Sadece Görev Seçimli) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4">
+                
+                <!-- Dönem Seçici (Haftalık / Aylık / Tüm Zamanlar) -->
+                <div class="grid grid-cols-3 bg-slate-950 p-1 rounded-2xl border border-slate-800">
+                    <button onclick="setChartPeriod('weekly')" id="period-weekly" class="py-2 px-3 rounded-xl text-xs font-bold bg-indigo-600 text-white transition">
+                        Haftalık
+                    </button>
+                    <button onclick="setChartPeriod('monthly')" id="period-monthly" class="py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition">
+                        Aylık
+                    </button>
+                    <button onclick="setChartPeriod('all')" id="period-all" class="py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition">
+                        Tüm Zamanlar
+                    </button>
+                </div>
+
+                <!-- Görünüm Modu: İkisi Birlikte | Süre | Görev Sayısı -->
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <div>
+                        <h3 id="chartMainTitle" class="text-base font-bold text-white">Performans Grafiği</h3>
+                        <p id="chartSubTitle" class="text-xs text-slate-400">Süre ve tamamlanan görev karşılaştırması</p>
+                    </div>
+
+                    <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                        <button onclick="setChartMetric('both')" id="metric-both" class="py-1.5 px-2.5 rounded-lg text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition">
+                            ⚡ İkisi Birlikte
+                        </button>
+                        <button onclick="setChartMetric('minutes')" id="metric-minutes" class="py-1.5 px-2.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white transition">
+                            ⏱️ Süre
+                        </button>
+                        <button onclick="setChartMetric('count')" id="metric-count" class="py-1.5 px-2.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white transition">
+                            ✅ Görev
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Renk Açıklaması (Legend) -->
+                <div class="flex items-center gap-4 text-xs text-slate-400 px-1">
+                    <span id="legendMinutes" class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-cyan-400 inline-block"></span> Odak Süresi (Sol Eksen - Dk)</span>
+                    <span id="legendCount" class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-400 inline-block"></span> Görev Sayısı (Sağ Eksen - Adet)</span>
+                </div>
+
+                <div class="relative h-64 w-full">
+                    <canvas id="analyticsChart"></canvas>
+                </div>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- ================= ALT MOBİL NAVİGASYON BARI ================= -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 z-50">
+        <div class="max-w-md mx-auto grid grid-cols-3 gap-1 p-2">
+            <button onclick="switchTab('today')" id="nav-today" class="flex flex-col items-center justify-center py-2.5 rounded-2xl text-indigo-400 bg-indigo-500/10 font-semibold transition">
+                <i data-lucide="sun" class="w-5 h-5 mb-1"></i>
+                <span class="text-[11px]">Günlük Plan</span>
+            </button>
+            <button onclick="switchTab('weekly')" id="nav-weekly" class="flex flex-col items-center justify-center py-2.5 rounded-2xl text-slate-400 hover:text-slate-200 font-medium transition">
+                <i data-lucide="calendar-check-2" class="w-5 h-5 mb-1"></i>
+                <span class="text-[11px]">Haftalık Rutin</span>
+            </button>
+            <button onclick="switchTab('stats')" id="nav-stats" class="flex flex-col items-center justify-center py-2.5 rounded-2xl text-slate-400 hover:text-slate-200 font-medium transition">
+                <i data-lucide="bar-chart-big" class="w-5 h-5 mb-1"></i>
+                <span class="text-[11px]">Zaman & Analiz</span>
+            </button>
+        </div>
+    </nav>
+
+    <script>
+        const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+        const MONTHS_TR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+        
+        const CATEGORY_COLORS = {
+            'Akademik': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+            'Müzik': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+            'Sağlık': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+            'Genel': 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+        };
+        const PRIORITY_STYLES = {
+            'high': { label: 'Acil', dot: 'bg-rose-500', text: 'text-rose-400', weight: 3 },
+            'normal': { label: 'Normal', dot: 'bg-indigo-400', text: 'text-indigo-300', weight: 2 },
+            'low': { label: 'Düşük', dot: 'bg-slate-500', text: 'text-slate-400', weight: 1 }
+        };
+
+        // --- AYARLAR VE YENİ NESİL VERİ MİMARİSİ (v7) ---
+        // Bu mimaride rutinlerin "Programı (schedule)" ile "Yapıldığı Tarihler (completedDates)" tamamen ayrıdır!
+        // Böylece programı değiştirdiğinde geçmişte yaptığın hiçbir işaret silinmez.
+        let settings = JSON.parse(localStorage.getItem('appSettings_v7')) || {
+            dayStartHour: 6,
+            lastLogicalDate: null
+        };
+
+        let dailyTasksByDate = JSON.parse(localStorage.getItem('dailyTasksByDate_v7')) || {};
+        let timeHistory = JSON.parse(localStorage.getItem('timeHistory_v7')) || {};
+
+        let selectedDayIndex = 0;
+        let chartInstance = null;
+        let currentChartPeriod = 'weekly';
+        let currentChartMetric = 'both'; // 'both' | 'minutes' | 'count'
+
+        // Yeni Rutin Ekleme Formu Durumu
+        let newHabitFreqType = 'weekdays'; // 'weekdays' | 'interval'
+        let newHabitSelectedDays = [0, 1, 2, 3, 4]; // Pzt..Cum
+        let newHabitIntervalDays = 2; // 2 günde bir
+        let editingHabitId = null; // Hangi rutinin programı düzenleniyor?
+
+        // --- TARİH VE BİYOLOJİK SAAT MOTORU ---
+        function getLogicalNow() {
+            const now = new Date();
+            return new Date(now.getTime() - (settings.dayStartHour * 60 * 60 * 1000));
+        }
+
+        function formatDateKey(dateObj) {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function parseDateKey(dateKey) {
+            const [y, m, d] = dateKey.split('-').map(Number);
+            return new Date(y, m - 1, d, 12, 0, 0);
+        }
+
+        function getLogicalTodayKey() {
+            return formatDateKey(getLogicalNow());
+        }
+
+        function getLogicalTodayIndex() {
+            const day = getLogicalNow().getDay();
+            return day === 0 ? 6 : day - 1;
+        }
+
+        function getWeekDayDateObj(dayIndex) {
+            const logicalNow = getLogicalNow();
+            const todayIdx = getLogicalTodayIndex();
+            const target = new Date(logicalNow);
+            target.setDate(logicalNow.getDate() + (dayIndex - todayIdx));
+            return target;
+        }
+
+        function getWeekDayDateKey(dayIndex) {
+            return formatDateKey(getWeekDayDateObj(dayIndex));
+        }
+
+        // İki YYYY-MM-DD tarihi arasındaki tam gün farkını hesaplar (Periyodik rutinler için)
+        function diffDaysBetweenKeys(key1, key2) {
+            const d1 = parseDateKey(key1);
+            const d2 = parseDateKey(key2);
+            return Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+        }
+
+        // Varsayılan Rutinler
+        function getInitialHabits() {
+            const todayKey = getLogicalTodayKey();
+            const yesterdayObj = getWeekDayDateObj(Math.max(0, getLogicalTodayIndex() - 1));
+            const yesterdayKey = formatDateKey(yesterdayObj);
+
+            return [
+                {
+                    id: 1,
+                    title: 'Komite / Ders Tekrarı',
+                    category: 'Akademik',
+                    duration: 90,
+                    schedule: { type: 'weekdays', days: [0, 1, 2, 3, 4], every: 1, startDate: todayKey },
+                    completedDates: { [yesterdayKey]: true }
+                },
+                {
+                    id: 2,
+                    title: 'Elektro Gitar Pratiği',
+                    category: 'Müzik',
+                    duration: 45,
+                    schedule: { type: 'interval', days: [0, 2, 4, 6], every: 2, startDate: yesterdayKey },
+                    completedDates: { [yesterdayKey]: true }
+                },
+                {
+                    id: 3,
+                    title: 'Günlük Su & Vitamin Takibi',
+                    category: 'Sağlık',
+                    duration: null,
+                    schedule: { type: 'weekdays', days: [0, 1, 2, 3, 4, 5, 6], every: 1, startDate: todayKey },
+                    completedDates: { [yesterdayKey]: true, [todayKey]: true }
+                }
+            ];
+        }
+
+        let habits = JSON.parse(localStorage.getItem('habitsData_v7')) || getInitialHabits();
+
+        // Bir rutinin belirli bir tarihte (dateKey) ve haftanın gününde (dayIdx: 0..6) yapılması gerekiyor mu?
+        function isHabitScheduledForDate(habit, dateKey, dayIdx) {
+            if (!habit.schedule) return true;
+            if (habit.schedule.type === 'weekdays') {
+                return (habit.schedule.days || []).includes(dayIdx);
+            } else if (habit.schedule.type === 'interval') {
+                const every = Number(habit.schedule.every) || 2;
+                const anchor = habit.schedule.startDate || getLogicalTodayKey();
+                const diff = diffDaysBetweenKeys(anchor, dateKey);
+                // Pozitif ve negatif yönlü modülüs (Periyodik döngü)
+                return ((diff % every) + every) % every === 0;
+            }
+            return true;
+        }
+
+        // Bir rutinin o tarihte tamamlanıp tamamlanmadığını kontrol et (Geçmiş kaydı)
+        function isHabitCompletedOnDate(habit, dateKey) {
+            return Boolean(habit.completedDates && habit.completedDates[dateKey]);
+        }
+
+        // Rutinin program açıklamasını okunaklı metne çevir
+        function getScheduleDescription(habit) {
+            if (!habit.schedule) return 'Her Gün';
+            if (habit.schedule.type === 'interval') {
+                const ev = habit.schedule.every;
+                return ev === 1 ? 'Her Gün' : `${ev} Günde Bir`;
+            }
+            const dList = habit.schedule.days || [];
+            if (dList.length === 7) return 'Her Gün';
+            if (dList.length === 5 && !dList.includes(5) && !dList.includes(6)) return 'Hafta İçi';
+            if (dList.length === 2 && dList.includes(5) && dList.includes(6)) return 'Hafta Sonu';
+            if (dList.length === 0) return 'Gün Seçilmedi';
+            return dList.map(i => DAYS[i]).join(', ');
+        }
+
+        // Rutinin toplam tamamlama serisini (aktif tamamlanan gün sayısını) hesapla
+        function calculateHabitStreak(habit) {
+            if (!habit.completedDates) return 0;
+            return Object.values(habit.completedDates).filter(Boolean).length;
+        }
+
+        // --- OTOMATİK GÜN DEVRİ ---
+        function sortTasksArray(tasks) {
+            if (!tasks || !Array.isArray(tasks)) return;
+            tasks.sort((a, b) => {
+                if (Boolean(a.done) !== Boolean(b.done)) return a.done ? 1 : -1;
+                const weightA = (PRIORITY_STYLES[a.priority] || PRIORITY_STYLES['normal']).weight;
+                const weightB = (PRIORITY_STYLES[b.priority] || PRIORITY_STYLES['normal']).weight;
+                return weightB - weightA;
+            });
+        }
+
+        function ensureInitialSampleTasks() {
+            const todayKey = getLogicalTodayKey();
+            if (Object.keys(dailyTasksByDate).length === 0) {
+                dailyTasksByDate[todayKey] = [
+                    { id: 101, text: 'Mikrobiyoloji laboratuvar raporunu tamamla', priority: 'high', duration: 90, done: false },
+                    { id: 102, text: 'Yeni şarkı sololarına çalış', priority: 'normal', duration: 30, done: false },
+                    { id: 103, text: 'Mailleri kontrol et', priority: 'low', duration: null, done: true }
+                ];
+                sortTasksArray(dailyTasksByDate[todayKey]);
+            }
+        }
+
+        function checkAutoRollover() {
+            const currentLogicalDate = getLogicalTodayKey();
+
+            if (!settings.lastLogicalDate) {
+                settings.lastLogicalDate = currentLogicalDate;
+                selectedDayIndex = getLogicalTodayIndex();
+                saveToStorage();
+                return;
+            }
+
+            if (settings.lastLogicalDate !== currentLogicalDate) {
+                const prevDateKey = settings.lastLogicalDate;
+                const prevTasks = dailyTasksByDate[prevDateKey] || [];
+                const unfinished = prevTasks.filter(t => !t.done);
+                
+                if (unfinished.length > 0) {
+                    if (!dailyTasksByDate[currentLogicalDate]) dailyTasksByDate[currentLogicalDate] = [];
+                    dailyTasksByDate[currentLogicalDate].push(...unfinished);
+                    sortTasksArray(dailyTasksByDate[currentLogicalDate]);
+                    dailyTasksByDate[prevDateKey] = prevTasks.filter(t => t.done);
+                }
+
+                settings.lastLogicalDate = currentLogicalDate;
+                selectedDayIndex = getLogicalTodayIndex();
+                saveToStorage();
+                renderAll();
+            }
+
+            const realHour = new Date().getHours();
+            const nightBadge = document.getElementById('nightOwlBadge');
+            if (realHour >= 0 && realHour < settings.dayStartHour) {
+                nightBadge.classList.remove('hidden');
+            } else {
+                nightBadge.classList.add('hidden');
+            }
+        }
+
+        function toggleSettingsModal() {
+            const panel = document.getElementById('settingsPanel');
+            panel.classList.toggle('hidden');
+            document.getElementById('dayStartHourSelect').value = settings.dayStartHour;
+        }
+
+        function updateDayStartHour() {
+            const val = parseInt(document.getElementById('dayStartHourSelect').value, 10);
+            settings.dayStartHour = val;
+            document.getElementById('resetHourBadge').innerText = `${String(val).padStart(2, '0')}:00`;
+            checkAutoRollover();
+            selectedDayIndex = getLogicalTodayIndex();
+            saveToStorage();
+            renderAll();
+        }
+
+        function selectDay(dayIdx) {
+            selectedDayIndex = dayIdx;
+            renderAll();
+        }
+
+        function formatDuration(mins) {
+            if (!mins || mins <= 0) return '0dk';
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            if (h > 0 && m > 0) return `${h}s ${m}dk`;
+            if (h > 0) return `${h} saat`;
+            return `${m}dk`;
+        }
+
+        function parseHoursAndMins(hoursInputId, minsInputId) {
+            const h = parseInt(document.getElementById(hoursInputId).value, 10) || 0;
+            const m = parseInt(document.getElementById(minsInputId).value, 10) || 0;
+            const total = (h * 60) + m;
+            return total > 0 ? total : null;
+        }
+
+        // Tüm tarihlerin (Geçmiş + Bu Hafta) süre ve görev sayılarını senkronize et
+        function syncAllHistory() {
+            const allDateKeys = new Set([
+                ...Object.keys(dailyTasksByDate),
+                ...Object.keys(timeHistory)
+            ]);
+
+            habits.forEach(h => {
+                if (h.completedDates) {
+                    Object.keys(h.completedDates).forEach(k => allDateKeys.add(k));
+                }
+            });
+
+            for (let i = 0; i < 7; i++) {
+                allDateKeys.add(getWeekDayDateKey(i));
+            }
+
+            allDateKeys.forEach(dateKey => {
+                let dayMinutes = 0;
+                let dayCount = 0;
+
+                // O tarihte tamamlanmış rutinler
+                habits.forEach(h => {
+                    if (isHabitCompletedOnDate(h, dateKey)) {
+                        dayCount++;
+                        if (h.duration) dayMinutes += Number(h.duration);
+                    }
+                });
+
+                // O tarihte tamamlanmış anlık görevler
+                const tasks = dailyTasksByDate[dateKey] || [];
+                tasks.forEach(t => {
+                    if (t.done) {
+                        dayCount++;
+                        if (t.duration) dayMinutes += Number(t.duration);
+                    }
+                });
+
+                timeHistory[dateKey] = { minutes: dayMinutes, count: dayCount };
+            });
+        }
+
+        function saveToStorage() {
+            syncAllHistory();
+            localStorage.setItem('appSettings_v7', JSON.stringify(settings));
+            localStorage.setItem('habitsData_v7', JSON.stringify(habits));
+            localStorage.setItem('dailyTasksByDate_v7', JSON.stringify(dailyTasksByDate));
+            localStorage.setItem('timeHistory_v7', JSON.stringify(timeHistory));
+        }
+
+        // --- GÜNLÜK GÖREV İŞLEMLERİ ---
+        function getSelectedDayTasks() {
+            const key = getWeekDayDateKey(selectedDayIndex);
+            if (!dailyTasksByDate[key]) dailyTasksByDate[key] = [];
+            return dailyTasksByDate[key];
+        }
+
+        function addDailyTask(e) {
+            e.preventDefault();
+            const input = document.getElementById('dailyTaskInput');
+            const priority = document.getElementById('dailyTaskPriority').value;
+            if (!input.value.trim()) return;
+
+            const duration = parseHoursAndMins('dailyTaskHours', 'dailyTaskMins');
+            const tasks = getSelectedDayTasks();
+
+            tasks.push({
+                id: Date.now(),
+                text: input.value.trim(),
+                priority: priority,
+                duration: duration,
+                done: false
+            });
+
+            sortTasksArray(tasks);
+            input.value = '';
+            document.getElementById('dailyTaskHours').value = '';
+            document.getElementById('dailyTaskMins').value = '';
+            saveToStorage();
+            renderAll();
+        }
+
+        function toggleDailyTask(id) {
+            const tasks = getSelectedDayTasks();
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.done = !task.done;
+                sortTasksArray(tasks);
+                saveToStorage();
+                renderAll();
+            }
+        }
+
+        function deleteDailyTask(id) {
+            const key = getWeekDayDateKey(selectedDayIndex);
+            dailyTasksByDate[key] = getSelectedDayTasks().filter(t => t.id !== id);
+            saveToStorage();
+            renderAll();
+        }
+
+        // --- HAFTALIK RUTİN EKLEME & GEÇMİŞİ SİLMEDEN PROGRAM DÜZENLEME ---
+        function setNewHabitFreqType(type) {
+            newHabitFreqType = type;
+            const wBtn = document.getElementById('freqBtn-weekdays');
+            const iBtn = document.getElementById('freqBtn-interval');
+            const wBox = document.getElementById('newHabitWeekdaysBox');
+            const iBox = document.getElementById('newHabitIntervalBox');
+
+            if (type === 'weekdays') {
+                wBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-600 text-white transition";
+                iBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white transition";
+                wBox.classList.remove('hidden');
+                iBox.classList.add('hidden');
+            } else {
+                iBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-600 text-white transition";
+                wBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white transition";
+                iBox.classList.remove('hidden');
+                wBox.classList.add('hidden');
+            }
+        }
+
+        function setNewHabitInterval(everyN) {
+            newHabitIntervalDays = everyN;
+            [1, 2, 3, 4].forEach(n => {
+                const btn = document.getElementById(`intBtn-${n}`);
+                btn.className = n === everyN
+                    ? "py-2.5 px-2 rounded-xl text-xs font-bold border bg-indigo-600 border-indigo-400 text-white transition"
+                    : "py-2.5 px-2 rounded-xl text-xs font-bold border bg-slate-900 border-slate-800 text-slate-400 transition";
+            });
+        }
+
+        function renderNewHabitDaysPicker() {
+            const picker = document.getElementById('newHabitDaysPicker');
+            if (!picker) return;
+            picker.innerHTML = '';
+
+            DAYS.forEach((dName, idx) => {
+                const isSelected = newHabitSelectedDays.includes(idx);
+                picker.innerHTML += `
+                    <button type="button" onclick="toggleNewHabitDay(${idx})" class="py-2 rounded-xl text-xs font-bold border transition ${isSelected ? 'bg-indigo-600 border-indigo-400 text-white shadow-sm' : 'bg-slate-900 border-slate-800 text-slate-400'}">
+                        ${dName}
+                    </button>
+                `;
+            });
+        }
+
+        function toggleNewHabitDay(idx) {
+            if (newHabitSelectedDays.includes(idx)) {
+                if (newHabitSelectedDays.length > 1) {
+                    newHabitSelectedDays = newHabitSelectedDays.filter(d => d !== idx);
+                }
+            } else {
+                newHabitSelectedDays.push(idx);
+                newHabitSelectedDays.sort();
+            }
+            renderNewHabitDaysPicker();
+        }
+
+        function setQuickDays(daysArr) {
+            newHabitSelectedDays = [...daysArr];
+            renderNewHabitDaysPicker();
+        }
+
+        function addHabit(e) {
+            e.preventDefault();
+            const input = document.getElementById('newHabitInput');
+            const category = document.getElementById('newHabitCategory').value;
+            if (!input.value.trim()) return;
+
+            const duration = parseHoursAndMins('newHabitHours', 'newHabitMins');
+            const todayKey = getLogicalTodayKey();
+
+            const scheduleObj = newHabitFreqType === 'weekdays'
+                ? { type: 'weekdays', days: [...newHabitSelectedDays], every: 1, startDate: todayKey }
+                : { type: 'interval', days: [0,1,2,3,4,5,6], every: newHabitIntervalDays, startDate: todayKey };
+
+            habits.push({
+                id: Date.now(),
+                title: input.value.trim(),
+                category: category,
+                duration: duration,
+                schedule: scheduleObj,
+                completedDates: {}
+            });
+
+            input.value = '';
+            document.getElementById('newHabitHours').value = '';
+            document.getElementById('newHabitMins').value = '';
+            saveToStorage();
+            renderAll();
+        }
+
+        // Rutinin o günkü tamamlanma durumunu değiştir (Programı bozmaz!)
+        function toggleHabitCompletion(habitId, dateKey) {
+            const habit = habits.find(h => h.id === habitId);
+            if (!habit) return;
+            if (!habit.completedDates) habit.completedDates = {};
+
+            if (habit.completedDates[dateKey]) {
+                delete habit.completedDates[dateKey];
+            } else {
+                habit.completedDates[dateKey] = true;
+            }
+            saveToStorage();
+            renderAll();
+        }
+
+        // Mevcut bir rutinin programını düzenleme panelini aç/kapat (Geçmiş kayıtları korur)
+        function toggleEditHabitSchedule(habitId) {
+            editingHabitId = (editingHabitId === habitId) ? null : habitId;
+            renderWeeklyTab();
+            lucide.createIcons();
+        }
+
+        function changeHabitScheduleMode(habitId, mode) {
+            const habit = habits.find(h => h.id === habitId);
+            if (!habit) return;
+            habit.schedule.type = mode;
+            if (mode === 'weekdays' && (!habit.schedule.days || habit.schedule.days.length === 0)) {
+                habit.schedule.days = [0, 1, 2, 3, 4];
+            }
+            if (mode === 'interval' && !habit.schedule.every) {
+                habit.schedule.every = 2;
+                habit.schedule.startDate = getLogicalTodayKey();
+            }
+            saveToStorage();
+            renderAll();
+        }
+
+        function toggleExistingHabitScheduledDay(habitId, dayIdx) {
+            const habit = habits.find(h => h.id === habitId);
+            if (!habit) return;
+            habit.schedule.type = 'weekdays';
+            let dArr = habit.schedule.days || [];
+            if (dArr.includes(dayIdx)) {
+                dArr = dArr.filter(d => d !== dayIdx);
+            } else {
+                dArr.push(dayIdx);
+                dArr.sort();
+            }
+            habit.schedule.days = dArr;
+            saveToStorage();
+            renderAll();
+        }
+
+        function setExistingHabitInterval(habitId, everyN) {
+            const habit = habits.find(h => h.id === habitId);
+            if (!habit) return;
+            habit.schedule.type = 'interval';
+            habit.schedule.every = everyN;
+            habit.schedule.startDate = getLogicalTodayKey();
+            saveToStorage();
+            renderAll();
+        }
+
+        function deleteHabit(id) {
+            if (confirm('Bu rutini silmek istediğine emin misin?')) {
+                habits = habits.filter(h => h.id !== id);
+                saveToStorage();
+                renderAll();
+            }
+        }
+
+        // --- RENDER: GÜNLÜK SEKME ---
+        function renderDayStrip() {
+            const strip = document.getElementById('dayStripContainer');
+            const todayIdx = getLogicalTodayIndex();
+            strip.innerHTML = '';
+
+            const monObj = getWeekDayDateObj(0);
+            const sunObj = getWeekDayDateObj(6);
+            document.getElementById('weekRangeText').innerText = 
+                `${monObj.getDate()} ${MONTHS_TR[monObj.getMonth()]} - ${sunObj.getDate()} ${MONTHS_TR[sunObj.getMonth()]} Haftası`;
+
+            const backBtn = document.getElementById('backToTodayBtn');
+            if (selectedDayIndex !== todayIdx) backBtn.classList.remove('hidden');
+            else backBtn.classList.add('hidden');
+
+            for (let i = 0; i < 7; i++) {
+                const dObj = getWeekDayDateObj(i);
+                const dayNum = dObj.getDate();
+                const isSelected = i === selectedDayIndex;
+                const isToday = i === todayIdx;
+
+                const dayKey = formatDateKey(dObj);
+                const hasActivity = (timeHistory[dayKey] && timeHistory[dayKey].count > 0);
+
+                let btnStyle = 'bg-slate-950 border-slate-800/80 text-slate-400 hover:border-slate-700';
+                if (isSelected) {
+                    btnStyle = 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-600/30 scale-[1.03]';
+                } else if (isToday) {
+                    btnStyle = 'bg-slate-800 border-indigo-500/50 text-indigo-300';
+                }
+
+                strip.innerHTML += `
+                    <button onclick="selectDay(${i})" class="flex flex-col items-center justify-center py-2.5 rounded-2xl border transition-all ${btnStyle}">
+                        <span class="text-[10px] font-bold uppercase tracking-tighter opacity-80">${DAYS[i]}</span>
+                        <span class="text-sm font-extrabold mt-0.5">${dayNum}</span>
+                        <span class="w-1.5 h-1.5 rounded-full mt-1 ${hasActivity ? (isSelected ? 'bg-white' : 'bg-emerald-400') : 'bg-transparent'}"></span>
+                    </button>
+                `;
+            }
+        }
+
+        function renderTodayTab() {
+            renderDayStrip();
+
+            const todayIdx = getLogicalTodayIndex();
+            const selectedDateObj = getWeekDayDateObj(selectedDayIndex);
+            const selectedDateKey = formatDateKey(selectedDateObj);
+            const selectedDayLabel = selectedDayIndex === todayIdx 
+                ? 'Bugün' 
+                : selectedDateObj.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'short' });
+
+            document.getElementById('progressCardTitle').innerText = `${selectedDayLabel} • Süre Bazlı İlerleme`;
+            document.getElementById('dailyListHeading').innerHTML = `<i data-lucide="list-ordered" class="w-4 h-4 text-amber-400"></i> ${selectedDayLabel} Yapılacaklar`;
+            document.getElementById('selectedDayHabitsHeading').innerHTML = `<i data-lucide="repeat" class="w-4 h-4 text-indigo-400"></i> ${selectedDayLabel} Rutinleri`;
+
+            const currentTasks = getSelectedDayTasks();
+            sortTasksArray(currentTasks);
+
+            // Seçili günde yapılması planlanan VEYA o gün zaten tamamlanmış olan rutinleri getir
+            const todaysHabits = habits.filter(h => 
+                isHabitScheduledForDate(h, selectedDateKey, selectedDayIndex) || 
+                isHabitCompletedOnDate(h, selectedDateKey)
+            );
+
+            let totalPlannedMins = 0, completedMins = 0;
+            let timedTotalCount = 0, timedDoneCount = 0;
+            let untimedTotalCount = 0, untimedDoneCount = 0;
+
+            currentTasks.forEach(t => {
+                if (t.duration && t.duration > 0) {
+                    timedTotalCount++;
+                    totalPlannedMins += Number(t.duration);
+                    if (t.done) { timedDoneCount++; completedMins += Number(t.duration); }
+                } else {
+                    untimedTotalCount++;
+                    if (t.done) untimedDoneCount++;
+                }
+            });
+
+            todaysHabits.forEach(h => {
+                const isDone = isHabitCompletedOnDate(h, selectedDateKey);
+                if (h.duration && h.duration > 0) {
+                    timedTotalCount++;
+                    totalPlannedMins += Number(h.duration);
+                    if (isDone) { timedDoneCount++; completedMins += Number(h.duration); }
+                } else {
+                    untimedTotalCount++;
+                    if (isDone) untimedDoneCount++;
+                }
+            });
+
+            let progressPercent = 0;
+            if (totalPlannedMins > 0) {
+                progressPercent = Math.round((completedMins / totalPlannedMins) * 100);
+            } else if (untimedTotalCount > 0) {
+                progressPercent = Math.round((untimedDoneCount / untimedTotalCount) * 100);
+            }
+
+            const remainingMins = Math.max(0, totalPlannedMins - completedMins);
+
+            document.getElementById('timeProgressPercent').innerText = `%${progressPercent}`;
+            document.getElementById('timeProgressBar').style.width = `${progressPercent}%`;
+            document.getElementById('remainingTimeText').innerText = remainingMins > 0 
+                ? `Kalan: ${formatDuration(remainingMins)}` 
+                : (totalPlannedMins > 0 ? 'Tüm süre tamamlandı! 🎉' : 'Henüz süre eklenmedi');
+
+            document.getElementById('timedSummaryText').innerText = `${formatDuration(completedMins)} / ${formatDuration(totalPlannedMins)}`;
+            document.getElementById('timedCountSubtext').innerText = `${timedDoneCount} / ${timedTotalCount} süreli iş bitti`;
+
+            document.getElementById('untimedSummaryText').innerText = `${untimedDoneCount} / ${untimedTotalCount} Yapıldı`;
+            document.getElementById('untimedSubtext').innerText = untimedTotalCount > 0 
+                ? `${untimedTotalCount - untimedDoneCount} süresiz iş bekliyor` 
+                : 'Süresiz görev yok';
+
+            // Anlık Görevleri Çiz
+            const listEl = document.getElementById('dailyTaskList');
+            listEl.innerHTML = '';
+            if (currentTasks.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-7 px-4 bg-slate-900/40 border border-dashed border-slate-800 rounded-3xl text-slate-500 text-xs">
+                        ${selectedDayLabel} için eklenmiş anlık görev yok.
+                    </div>
+                `;
+            } else {
+                currentTasks.forEach(task => {
+                    const prio = PRIORITY_STYLES[task.priority] || PRIORITY_STYLES['normal'];
+                    const badgeHtml = task.duration 
+                        ? `<span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-xl bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 whitespace-nowrap shrink-0">
+                             <i data-lucide="clock" class="w-3 h-3 shrink-0"></i> ${formatDuration(task.duration)}
+                           </span>`
+                        : `<span class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-lg bg-slate-800 text-slate-400 whitespace-nowrap shrink-0">Süresiz</span>`;
+
+                    listEl.innerHTML += `
+                        <div data-id="${task.id}" class="flex items-center justify-between gap-3 p-4 rounded-2xl border transition ${task.done ? 'bg-slate-900/30 border-slate-800/60 opacity-55' : 'bg-slate-900 border-slate-800 shadow-md'}">
+                            <div class="flex items-center gap-3 flex-1 min-w-0">
+                                <div class="drag-handle cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-400 py-1 shrink-0">
+                                    <i data-lucide="grip-vertical" class="w-5 h-5"></i>
+                                </div>
+                                <button onclick="toggleDailyTask(${task.id})" class="check-anim w-6 h-6 rounded-xl border-2 flex items-center justify-center shrink-0 ${task.done ? 'bg-emerald-500 border-emerald-400 text-white' : 'border-slate-600 hover:border-indigo-400'}">
+                                    <i data-lucide="check" class="w-4 h-4 ${task.done ? 'opacity-100' : 'opacity-0'}"></i>
+                                </button>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2 h-2 rounded-full ${prio.dot} shrink-0"></span>
+                                        <p class="text-sm sm:text-base font-semibold truncate ${task.done ? 'line-through text-slate-500' : 'text-slate-100'}">${task.text}</p>
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                                        ${badgeHtml}
+                                        <span class="text-[11px] font-medium ${prio.text} whitespace-nowrap">${prio.label}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button onclick="deleteDailyTask(${task.id})" class="p-2 text-slate-500 hover:text-rose-400 transition shrink-0">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    `;
+                });
+            }
+
+            // Seçili Günün Rutinlerini Çiz (Tamamlananlar alta iner)
+            const todayHabitsEl = document.getElementById('todayHabitsList');
+            todayHabitsEl.innerHTML = '';
+
+            if (todaysHabits.length === 0) {
+                todayHabitsEl.innerHTML = `
+                    <div class="text-center py-6 px-4 bg-slate-900/40 border border-dashed border-slate-800 rounded-3xl text-slate-500 text-xs">
+                        ${selectedDayLabel} için planlanmış rutin görev yok (Dinlenme günü).
+                    </div>
+                `;
+            } else {
+                const sortedHabits = [...todaysHabits].sort((a, b) => {
+                    return isHabitCompletedOnDate(a, selectedDateKey) - isHabitCompletedOnDate(b, selectedDateKey);
+                });
+
+                sortedHabits.forEach(habit => {
+                    const isDone = isHabitCompletedOnDate(habit, selectedDateKey);
+                    const catClass = CATEGORY_COLORS[habit.category] || CATEGORY_COLORS['Genel'];
+                    const schedLabel = getScheduleDescription(habit);
+                    const durBadge = habit.duration 
+                        ? `<span class="text-xs font-semibold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-xl flex items-center gap-1 whitespace-nowrap shrink-0">
+                             <i data-lucide="clock" class="w-3 h-3 shrink-0"></i> ${formatDuration(habit.duration)}
+                           </span>`
+                        : `<span class="text-[11px] text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded-lg whitespace-nowrap shrink-0">Süresiz</span>`;
+
+                    todayHabitsEl.innerHTML += `
+                        <div class="flex items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900/70 border border-slate-800/90 transition ${isDone ? 'opacity-55' : ''}">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <button onclick="toggleHabitCompletion(${habit.id}, '${selectedDateKey}')" class="check-anim w-6 h-6 rounded-xl border-2 flex items-center justify-center shrink-0 ${isDone ? 'bg-indigo-500 border-indigo-400 text-white' : 'border-slate-600 hover:border-indigo-400'}">
+                                    <i data-lucide="check" class="w-4 h-4 ${isDone ? 'opacity-100' : 'opacity-0'}"></i>
+                                </button>
+                                <div class="min-w-0">
+                                    <p class="text-sm sm:text-base font-semibold truncate ${isDone ? 'line-through text-slate-500' : 'text-slate-200'}">${habit.title}</p>
+                                    <div class="flex items-center gap-1.5 mt-1 flex-wrap">
+                                        <span class="text-[10px] px-2 py-0.5 rounded-md border ${catClass}">${habit.category}</span>
+                                        <span class="text-[10px] text-slate-400">• ${schedLabel}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="shrink-0">${durBadge}</div>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        // --- RENDER: HAFTALIK RUTİNLER VE ESNEK PROGRAM DÜZENLEYİCİ ---
+        function renderWeeklyTab() {
+            const container = document.getElementById('weeklyHabitCards');
+            const todayIdx = getLogicalTodayIndex();
+            container.innerHTML = '';
+
+            let bestStreak = 0;
+
+            habits.forEach(habit => {
+                const streak = calculateHabitStreak(habit);
+                if (streak > bestStreak) bestStreak = streak;
+                const catClass = CATEGORY_COLORS[habit.category] || CATEGORY_COLORS['Genel'];
+                const durText = habit.duration ? `⏱️ ${formatDuration(habit.duration)}` : 'Süresiz';
+                const schedText = getScheduleDescription(habit);
+                const isEditing = editingHabitId === habit.id;
+
+                // Haftanın 7 günü için Tamamlanma Kutucukları
+                // Programlı günler belirgin, program dışı (dinlenme) günleri sönük görünür.
+                // Ancak geçmişte tamamlanmışsa her koşulda yeşil/mavi onaylı görünür!
+                let daysGridHtml = '';
+                DAYS.forEach((dayName, idx) => {
+                    const dateObj = getWeekDayDateObj(idx);
+                    const dateKey = formatDateKey(dateObj);
+                    const dNum = dateObj.getDate();
+
+                    const isScheduled = isHabitScheduledForDate(habit, dateKey, idx);
+                    const isDone = isHabitCompletedOnDate(habit, dateKey);
+                    const isToday = idx === todayIdx;
+
+                    let btnClass = '';
+                    let iconName = 'minus';
+
+                    if (isDone) {
+                        btnClass = 'bg-emerald-600 border-emerald-400 text-white shadow-lg shadow-emerald-600/20';
+                        iconName = 'check';
+                    } else if (isScheduled) {
+                        btnClass = isToday 
+                            ? 'bg-indigo-950/80 border-indigo-400 text-indigo-200' 
+                            : 'bg-slate-950 border-indigo-500/40 text-slate-200 hover:border-indigo-400';
+                        iconName = 'circle';
+                    } else {
+                        // Dinlenme / Program dışı gün
+                        btnClass = 'bg-slate-950/40 border-slate-800/60 text-slate-600 opacity-50';
+                        iconName = 'minus';
+                    }
+
+                    daysGridHtml += `
+                        <button onclick="toggleHabitCompletion(${habit.id}, '${dateKey}')" class="check-anim flex flex-col items-center justify-center py-2.5 rounded-2xl border ${btnClass}">
+                            <span class="text-[9px] font-bold uppercase">${dayName}</span>
+                            <span class="text-[11px] font-extrabold mb-1">${dNum}</span>
+                            <div class="w-4 h-4 rounded-full flex items-center justify-center ${isDone ? 'bg-white/20' : ''}">
+                                <i data-lucide="${iconName}" class="w-3 h-3"></i>
+                            </div>
+                        </button>
+                    `;
+                });
+
+                // Program Düzenleme Çekmecesi (Açıldığında görünür, geçmişi bozmadan programı değiştirir)
+                let editDrawerHtml = '';
+                if (isEditing) {
+                    const isWeekdaysMode = habit.schedule.type === 'weekdays';
+                    const activeDays = habit.schedule.days || [];
+                    const currentEvery = habit.schedule.every || 2;
+
+                    let dayTogglesHtml = '';
+                    DAYS.forEach((dName, dIdx) => {
+                        const active = activeDays.includes(dIdx);
+                        dayTogglesHtml += `
+                            <button type="button" onclick="toggleExistingHabitScheduledDay(${habit.id}, ${dIdx})" class="py-2 rounded-xl text-xs font-bold border transition ${active ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}">
+                                ${dName}
+                            </button>
+                        `;
+                    });
+
+                    editDrawerHtml = `
+                        <div class="mt-3 pt-3 border-t border-slate-800 bg-slate-950/80 p-3.5 rounded-2xl space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                                    <i data-lucide="Sliders" class="w-3.5 h-3.5"></i> Çalışma Günlerini Değiştir
+                                </span>
+                                <span class="text-[10px] text-emerald-400">✓ Geçmiş işaretlerin korunur</span>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <button type="button" onclick="changeHabitScheduleMode(${habit.id}, 'weekdays')" class="flex-1 py-1.5 rounded-xl text-xs font-bold border transition ${isWeekdaysMode ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-800 text-slate-400'}">
+                                    Haftanın Günleri
+                                </button>
+                                <button type="button" onclick="changeHabitScheduleMode(${habit.id}, 'interval')" class="flex-1 py-1.5 rounded-xl text-xs font-bold border transition ${!isWeekdaysMode ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-800 text-slate-400'}">
+                                    Periyodik (N Günde Bir)
+                                </button>
+                            </div>
+
+                            ${isWeekdaysMode ? `
+                                <div class="grid grid-cols-7 gap-1.5">
+                                    ${dayTogglesHtml}
+                                </div>
+                            ` : `
+                                <div class="grid grid-cols-4 gap-2">
+                                    ${[1, 2, 3, 4].map(n => `
+                                        <button type="button" onclick="setExistingHabitInterval(${habit.id}, ${n})" class="py-2 rounded-xl text-xs font-bold border transition ${currentEvery === n ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}">
+                                            ${n === 1 ? 'Her Gün' : n + ' Günde Bir'}
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            `}
+                        </div>
+                    `;
+                }
+
+                container.innerHTML += `
+                    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-md">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h4 class="text-base font-bold text-white">${habit.title}</h4>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-md border ${catClass}">${habit.category}</span>
+                                </div>
+                                <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                                    <span class="text-xs text-cyan-400 font-semibold whitespace-nowrap">${durText}</span>
+                                    <span class="text-slate-600">•</span>
+                                    <span class="text-xs text-indigo-300 font-medium">📅 ${schedText}</span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button onclick="toggleEditHabitSchedule(${habit.id})" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1 ${isEditing ? 'bg-indigo-600 text-white border-indigo-400' : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'}">
+                                    <i data-lucide="calendar-cog" class="w-3.5 h-3.5"></i>
+                                    <span class="hidden sm:inline">Programı Düzenle</span>
+                                </button>
+                                <button onclick="deleteHabit(${habit.id})" class="p-1.5 text-slate-500 hover:text-rose-400">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 7 Günlük Takvim Izgarası -->
+                        <div class="grid grid-cols-7 gap-1.5 sm:gap-2">
+                            ${daysGridHtml}
+                        </div>
+
+                        <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                            <span class="flex items-center gap-3">
+                                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-400"></span> Planlı Gün</span>
+                                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Tamamlandı</span>
+                            </span>
+                            <span class="text-amber-400 font-bold flex items-center gap-1">
+                                <i data-lucide="flame" class="w-3.5 h-3.5"></i> Toplam ${streak} Kez Yapıldı
+                            </span>
+                        </div>
+
+                        ${editDrawerHtml}
+                    </div>
+                `;
+            });
+
+            document.getElementById('topStreakBadge').innerText = `${bestStreak}`;
+        }
+
+        // --- ZAMAN & ANALİZ SEKMESİ (İKİSİ BİRLİKTE / SÜRE / GÖREV GRAFİĞİ) ---
+        function setChartPeriod(period) {
+            currentChartPeriod = period;
+            ['weekly', 'monthly', 'all'].forEach(p => {
+                const btn = document.getElementById(`period-${p}`);
+                btn.className = p === period 
+                    ? "py-2 px-3 rounded-xl text-xs font-bold bg-indigo-600 text-white transition"
+                    : "py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition";
+            });
+            renderStatsTab();
+        }
+
+        function setChartMetric(metric) {
+            currentChartMetric = metric;
+            ['both', 'minutes', 'count'].forEach(m => {
+                const btn = document.getElementById(`metric-${m}`);
+                btn.className = m === metric
+                    ? "py-1.5 px-2.5 rounded-lg text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition"
+                    : "py-1.5 px-2.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white transition";
+            });
+
+            document.getElementById('legendMinutes').style.display = (metric === 'both' || metric === 'minutes') ? 'flex' : 'none';
+            document.getElementById('legendCount').style.display = (metric === 'both' || metric === 'count') ? 'flex' : 'none';
+
+            renderStatsTab();
+        }
+
+        function renderStatsTab() {
+            syncAllHistory();
+
+            const logicalNow = getLogicalNow();
+            const todayKey = formatDateKey(logicalNow);
+            const currentMonthPrefix = todayKey.slice(0, 7);
+
+            let todayMins = 0, todayCount = 0;
+            let monthMins = 0, monthCount = 0;
+            let allMins = 0, allCount = 0;
+
+            Object.keys(timeHistory).forEach(dateKey => {
+                const entry = timeHistory[dateKey];
+                if (!entry) return;
+                allMins += entry.minutes || 0;
+                allCount += entry.count || 0;
+
+                if (dateKey.startsWith(currentMonthPrefix)) {
+                    monthMins += entry.minutes || 0;
+                    monthCount += entry.count || 0;
+                }
+                if (dateKey === todayKey) {
+                    todayMins = entry.minutes || 0;
+                    todayCount = entry.count || 0;
+                }
+            });
+
+            const monthName = logicalNow.toLocaleDateString('tr-TR', { month: 'long' });
+            document.getElementById('currentMonthLabel').innerText = `${monthName} Toplamı`;
+            document.getElementById('statTodayTime').innerText = formatDuration(todayMins);
+            document.getElementById('statTodayTasks').innerText = `${todayCount} görev tamamlandı`;
+            document.getElementById('statMonthTime').innerText = formatDuration(monthMins);
+            document.getElementById('statMonthTasks').innerText = `${monthCount} görev tamamlandı`;
+            document.getElementById('statAllTime').innerText = formatDuration(allMins);
+            document.getElementById('statAllTasks').innerText = `${allCount} görev tamamlandı`;
+
+            let labels = [];
+            let minutesData = [];
+            let countData = [];
+
+            if (currentChartPeriod === 'weekly') {
+                document.getElementById('chartMainTitle').innerText = 'Haftalık Performans';
+                for (let i = 0; i < 7; i++) {
+                    const dObj = getWeekDayDateObj(i);
+                    const dKey = formatDateKey(dObj);
+                    labels.push(`${DAYS[i]} (${dObj.getDate()})`);
+                    const rec = timeHistory[dKey] || { minutes: 0, count: 0 };
+                    minutesData.push(rec.minutes);
+                    countData.push(rec.count);
+                }
+            } else if (currentChartPeriod === 'monthly') {
+                const year = logicalNow.getFullYear();
+                const month = logicalNow.getMonth();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                document.getElementById('chartMainTitle').innerText = `${monthName} ${year} Grafiği`;
+
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const dKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    labels.push(`${d}`);
+                    const rec = timeHistory[dKey] || { minutes: 0, count: 0 };
+                    minutesData.push(rec.minutes);
+                    countData.push(rec.count);
+                }
+            } else {
+                document.getElementById('chartMainTitle').innerText = 'Tüm Zamanlar (Aylık Toplam)';
+                const monthlyBuckets = {};
+                const year = logicalNow.getFullYear();
+                for (let i = 5; i >= 0; i--) {
+                    const d = new Date(year, logicalNow.getMonth() - i, 1);
+                    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    monthlyBuckets[ym] = { minutes: 0, count: 0, label: `${MONTHS_TR[d.getMonth()]} ${d.getFullYear()}` };
+                }
+
+                Object.keys(timeHistory).sort().forEach(dateKey => {
+                    const ym = dateKey.slice(0, 7);
+                    const [y, m] = ym.split('-');
+                    if (!monthlyBuckets[ym]) {
+                        monthlyBuckets[ym] = { minutes: 0, count: 0, label: `${MONTHS_TR[parseInt(m, 10) - 1]} ${y}` };
+                    }
+                    monthlyBuckets[ym].minutes += timeHistory[dateKey].minutes || 0;
+                    monthlyBuckets[ym].count += timeHistory[dateKey].count || 0;
+                });
+
+                Object.keys(monthlyBuckets).sort().forEach(ym => {
+                    labels.push(monthlyBuckets[ym].label);
+                    minutesData.push(monthlyBuckets[ym].minutes);
+                    countData.push(monthlyBuckets[ym].count);
+                });
+            }
+
+            const ctx = document.getElementById('analyticsChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            const barGradient = ctx.createLinearGradient(0, 0, 0, 240);
+            barGradient.addColorStop(0, 'rgba(34, 211, 238, 0.85)');
+            barGradient.addColorStop(1, 'rgba(99, 102, 241, 0.2)');
+
+            const datasets = [];
+            if (currentChartMetric === 'both' || currentChartMetric === 'minutes') {
+                datasets.push({
+                    type: 'bar',
+                    label: 'Odak Süresi (Dk)',
+                    data: minutesData,
+                    backgroundColor: barGradient,
+                    borderColor: '#22d3ee',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    yAxisID: 'yMinutes',
+                    order: 2
+                });
+            }
+            if (currentChartMetric === 'both' || currentChartMetric === 'count') {
+                datasets.push({
+                    type: currentChartMetric === 'count' ? 'bar' : 'line',
+                    label: 'Tamamlanan Görev',
+                    data: countData,
+                    backgroundColor: currentChartMetric === 'count' ? 'rgba(16, 185, 129, 0.75)' : '#10b981',
+                    borderColor: '#10b981',
+                    borderWidth: 2.5,
+                    borderRadius: 6,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#090d16',
+                    tension: 0.35,
+                    yAxisID: 'yCount',
+                    order: 1
+                });
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#0f172a',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: (context) => {
+                                    if (context.dataset.yAxisID === 'yMinutes') {
+                                        return ` ⏱️ Süre: ${formatDuration(context.raw)} (${context.raw} dk)`;
+                                    }
+                                    return ` ✅ Tamamlanan: ${context.raw} görev`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        yMinutes: {
+                            type: 'linear',
+                            display: (currentChartMetric === 'both' || currentChartMetric === 'minutes'),
+                            position: 'left',
+                            beginAtZero: true,
+                            ticks: { color: '#22d3ee', font: { size: 10 }, precision: 0 },
+                            grid: { color: 'rgba(51, 65, 85, 0.25)', drawBorder: false }
+                        },
+                        yCount: {
+                            type: 'linear',
+                            display: (currentChartMetric === 'both' || currentChartMetric === 'count'),
+                            position: currentChartMetric === 'count' ? 'left' : 'right',
+                            beginAtZero: true,
+                            ticks: { color: '#10b981', font: { size: 10 }, precision: 0, stepSize: 1 },
+                            grid: { display: currentChartMetric === 'count', color: 'rgba(51, 65, 85, 0.25)' }
+                        },
+                        x: {
+                            ticks: { color: '#94a3b8', font: { size: 10, weight: '600' }, maxRotation: 0 },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function switchTab(tabName) {
+            ['today', 'weekly', 'stats'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`nav-${t}`).className = "flex flex-col items-center justify-center py-2.5 rounded-2xl text-slate-400 hover:text-slate-200 font-medium transition";
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            document.getElementById(`nav-${tabName}`).className = "flex flex-col items-center justify-center py-2.5 rounded-2xl text-indigo-400 bg-indigo-500/10 font-semibold transition";
+
+            if (tabName === 'weekly') renderNewHabitDaysPicker();
+            if (tabName === 'stats') renderStatsTab();
+        }
+
+        function renderAll() {
+            const logicalNow = getLogicalNow();
+            document.getElementById('currentDateDisplay').innerText = logicalNow.toLocaleDateString('tr-TR', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+            });
+            document.getElementById('resetHourBadge').innerText = `${String(settings.dayStartHour).padStart(2, '0')}:00`;
+
+            syncAllHistory();
+            renderTodayTab();
+            renderWeeklyTab();
+            renderNewHabitDaysPicker();
+            if (!document.getElementById('tab-stats').classList.contains('hidden')) {
+                renderStatsTab();
+            }
+            lucide.createIcons();
+        }
+
+        new Sortable(document.getElementById('dailyTaskList'), {
+            handle: '.drag-handle',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            onEnd: function (evt) {
+                const tasks = getSelectedDayTasks();
+                const movedItem = tasks.splice(evt.oldIndex, 1)[0];
+                tasks.splice(evt.newIndex, 0, movedItem);
+                sortTasksArray(tasks);
+                saveToStorage();
+                renderAll();
+            }
+        });
+
+        ensureInitialSampleTasks();
+        selectedDayIndex = getLogicalTodayIndex();
+        checkAutoRollover();
+        renderAll();
+        setInterval(checkAutoRollover, 30000);
+    </script>
+</body>
+</html>
